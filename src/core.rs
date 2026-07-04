@@ -827,7 +827,14 @@ impl<'a> Base {
         };
 
         if self.mode.is_write() {
-            if code.is_shop() {
+            // Only OLD engines use code 655 as a shop `key="value"` line. On NEW
+            // engines (MV/MZ) 655 is a Script-command continuation line, so this
+            // key=value reformat corrupts any script line containing '=' (e.g.
+            // `x.prototype.f = function(){…}` -> `x.prototype.f ="<whole line>"`,
+            // producing invalid JS -> in-game SyntaxError). The read side already
+            // guards shop handling with `!is_new()` (see process_parameter); the
+            // write side was missing that guard. Bug in rvpacker-txt-rs v13.0.1.
+            if !self.engine_type.is_new() && code.is_shop() {
                 if let Some((left, _)) = parameter.split_once('=') {
                     parsed = format!("{left}=\"{parsed}\"");
                 }
